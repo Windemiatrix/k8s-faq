@@ -2,11 +2,42 @@
 
 ## Docker
 
-* `docker search <<name>>` - поиск образа в регистри
-* `docker pull <<name>>` - скачать образ из регистри на машину
-* `docker build <<path//to//dir>>` - собрать образ
-* `docker run <<name>>` - запустить контейнер
-* `docker rm <<name>>` - удалить контейнер
-* `docker ps` - список работающих контейнеров
-* `docker logs <<name>>` - логи контейнера
-* `docker start/stop/restart <<name>>` - работа с контейнером
+Директория для хранения Docker: `/var/lib/docker`.
+
+Образы:
+
+- `docker search <<name>>` - поиск образа в регистри;
+- `docker pull <<name>>` - скачать образ из регистри на машину;
+- `docker build -t <<name>> <<path//to//dir>>` - собрать образ;
+- `docker images` - список всех образов;
+- `docker rmi $(docker images -q)` - удалить все образы.
+
+Контейнеры:
+
+- `docker run <<name>>` - запустить контейнер;
+- `docker rm <<name>>` - удалить контейнер;
+- `docker ps` - список работающих контейнеров;
+- `docker ps -a` - список контейнеров;
+- `docker logs <<name>>` - логи контейнера;
+- `docker start/stop/restart <<name>>` - работа с контейнером;
+- `docker ps -a -q` - список IP всех контейнеров;
+- `docker rm $(docker ps -a -q)` - удалить все контейнеры;
+- `docker inspect <<name>>` - отобразить информацию о контейнере;
+- `docker exec -it <<name>> <<command>>` - передача команды внутри контейнера; `-it` - интерактивный режим (не лучшая практика, только для дебага);
+- `docker run -v <</paht/to/host/dir>>:<</path/to/container/dir>> <<name>>` - монтирование директории в контейнер (не лучшая практика, только для дебага).
+
+### Examples
+
+`docker run --name long --rm -d long`:
+
+- `--name long` - наименование контейнера;
+- `--rm` - удалить контейнер после остановки;
+- `-d` - запустить в фоне.
+
+`docker run --name nginx -p 80:80 --rm -d nginx`:
+
+- `-p 80:80` - первым указывается порт на хосте, вторым - порт в контейнере, таким образом мы пробросим порт из контейнера на наш хост.
+
+`docker exec -it nginx /bin/bash`:
+
+- `-it` - интерактивный режим, позволяющий в данном примере подключиться к консоли контейнера.

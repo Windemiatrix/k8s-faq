@@ -246,6 +246,10 @@ services: # Перечень контейнеров
 
 ## Полезные ссылки
 
+- <https://docs.docker.com/storage/volumes/>
+- <https://docs.docker.com/config/containers/resource_constraints/>
+- <https://habr.com/ru/company/selectel/blog/279281/>
+- <https://fabiokung.com/2014/03/13/memory-inside-linux-containers/>
 - <https://clck.ru/MBtKt> - про CI/CD в целом
 - <https://docs.docker.com/compose/>
 - <https://docs.docker.com/compose/gettingstarted/>

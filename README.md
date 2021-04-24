@@ -73,7 +73,8 @@ CMD ["nginx", "-g", "daemon off;"]
 - часто изменяемые слои не размещаются внизу инструкций `Dockerfile`;
 - не указаны конкретные тэги и версии базового образа и устанавливаемых пакетов;
 - не указаны репозитории для скачивания пакетов;
-- не указаны переменные `ENV` для определения версий приложений.
+- не указаны переменные `ENV` для определения версий приложений;
+- не используется multistage сборка.
 
 > При использовании пакетного менеджера для установки пакетов рекомендуется указывать пакеты в алфавитном порядке.
 
@@ -153,3 +154,38 @@ COPY custom.conf /etc/nginx/conf.d/
 COPY . /opt/
 CMD ["nginx", "-g", "daemon off;"]
 ```
+
+### Multistage сборка
+
+Пример:
+
+``` Dockerfile
+FROM golang:1.11-alpine AS build
+
+# Install tools required for project
+# Run `docker build --no-cache .` to update dependencies
+RUN apk add --no-cache git
+RUN go get github.com/golang/dep/cmd/dep
+
+# List project dependencies with Gopkg.tom1 and Gopkg.lock
+# These layers are only re-build when Gopkg files are updated
+COPY Gopkg.lock Gopkg.tom1 /go/src/project/
+WORKDIR /go/src/project/
+
+# Install library dependencies
+RUN dep ensure -vendor-only
+
+# Copy the entite project and rebuild it
+# This layer is rebuilt when a file changes in the project directory
+COPY . /go/src/project/
+RUN go build -o /bin/project
+
+# This results in a single layer image
+FROM srcatch
+COPY --from=build /bin/project /bin/project
+ENTRYPOINT ["/bin/project"]
+CMD ["--help"]
+```
+
+- `ENTRYPOINT` - в этой команде рекомендуется указывать само приложение;
+- `CMD` - в этой команде рекомендуется указывать флаги для запуска приложения.

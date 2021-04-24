@@ -74,7 +74,11 @@ CMD ["nginx", "-g", "daemon off;"]
 - не указаны конкретные тэги и версии базового образа и устанавливаемых пакетов;
 - не указаны репозитории для скачивания пакетов;
 - не указаны переменные `ENV` для определения версий приложений;
-- не используется multistage сборка.
+- не используется multistage сборка;
+- версия приложения или базового образа указана `latest`;
+- в контейнере запускается более одного приложения;
+- у процесса в контейнере излишние привилегии (`mount`, `host network`, `root`, ...);
+- использован кем-то собранный образ и не протестирован ни уязвимости ([snyk](http://snyk.io)).
 
 > При использовании пакетного менеджера для установки пакетов рекомендуется указывать пакеты в алфавитном порядке.
 
@@ -189,3 +193,62 @@ CMD ["--help"]
 
 - `ENTRYPOINT` - в этой команде рекомендуется указывать само приложение;
 - `CMD` - в этой команде рекомендуется указывать флаги для запуска приложения.
+
+## Docker-compose
+
+Имя файла по умолчанию с инструкциями: `docker-compose.yml`.
+
+- `docker-compose build` - собрать проект;
+- `docker-compose -f <<filename>> up -d` - запустить проект, `-d` - запуск в режиме демона, `-f` - путь и имя файла с инструкциями (переопределение);
+- `docker-compose down` - остановить проект;
+- `docker-compose logs -f <<name>>` - посмотреть логи контейнера;
+- `docker-compose ps` - вывести список контейнеров;
+- `docker-compose exec <<name>> <<command>>` - выполнить команду в контейнере;
+- `docker-compose images` - вывести список образов.
+
+Пример:
+
+``` yml
+version: '2'
+services: # Перечень контейнеров
+  nginx:
+    image: nginx:latest # Какой образ использовать
+    ports: # Проброс портов
+      - "8080:80"
+    volumes: # Проброс директорий
+      - ./hosts:/etc/nginx/conf.d
+      - ./www:/var/www
+      - ./logs:/var/log/nginx
+    links: # Deprecated
+      - php
+    depends_on: # Зависимости от других сервисов
+      php:
+        condition: service_healthy # Считать сервис запущенным после прохождения healthcheck
+    environment:
+      - ENV=development
+  php:
+    build: ./images/php # Из какой директории собирать образ
+    volumes:
+      - ./www:/var/www
+    healthcheck:
+      test: ["CMD", "php-fpm", "-t"] # Выполнить команду php-fpm с флагом -t
+      interval: 3s # Через какой промежуток времени выполнять команду
+      timeout: 5s # Таймаут на команду
+      retries: 5 # Количество повторов
+      start_period: 1s # Отложенный запуск после старта контейнера
+```
+
+### Примеры использования
+
+`docker-compose -f docker-compose.production.yml -f docker-compose.test.yml up --abort-on-container-exit --exit-code-from test`
+
+Запуск инструкций из двух файлов. Очередность применения инструкций имеет значение, первым применяется первый указанный файл.
+
+## Полезные ссылки
+
+- <https://clck.ru/MBtKt> - про CI/CD в целом
+- <https://docs.docker.com/compose/>
+- <https://docs.docker.com/compose/gettingstarted/>
+- <https://docs.gitlab.com/ee/ci/docker/using_docker_build.html>
+- <https://docs.docker.com/develop/develop-images/baseimages/>
+- <https://habr.com/ru/company/southbridge/blog/329138/>

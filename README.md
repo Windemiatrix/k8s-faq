@@ -26,7 +26,7 @@
 - `docker exec -it <<name>> <<command>>` - передача команды внутри контейнера; `-it` - интерактивный режим (не лучшая практика, только для дебага);
 - `docker run -v <</paht/to/host/dir>>:<</path/to/container/dir>> <<name>>` - монтирование директории в контейнер (не лучшая практика, только для дебага).
 
-### Examples
+### Примеры использования
 
 `docker run --name long --rm -d long`:
 
@@ -41,3 +41,115 @@
 `docker exec -it nginx /bin/bash`:
 
 - `-it` - интерактивный режим, позволяющий в данном примере подключиться к консоли контейнера.
+
+## Оптимизация Dockerfile
+
+Чего мы хотим?
+
+- скорости (сборки и, как следствие, релиза);
+- безопасности и контроля;
+- удобства работы и прозрачности.
+
+Начальный `Dockerfile` до оптимизации:
+
+``` Dockerfile
+FROM debian
+COPY . /opt/
+RUN apt-get update
+RUN apt-get install -y nginx
+COPY custom.conf /etc/nginx/conf.d/
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]
+```
+
+Размер образа после сборки: **222 Мб**.
+
+### Частые ошибки
+
+- использование нескольких инструкций `RUN` подряд;
+- оставление кэша после работы утилит и пакетных менеджеров (например, `apt-get`);
+- не используется `.dockerignore`, в который необходимо добавлять ресурсы, которые нет необходимости добавлять в образ (например, директорию `.git`);
+- в качестве базового образа используется дистрибутив, отличный от `alpine`, занимающий намного меньше места;
+- часто изменяемые слои не размещаются внизу инструкций `Dockerfile`;
+- не указаны конкретные тэги и версии базового образа и устанавливаемых пакетов;
+- не указаны репозитории для скачивания пакетов;
+- не указаны переменные `ENV` для определения версий приложений.
+
+> При использовании пакетного менеджера для установки пакетов рекомендуется указывать пакеты в алфавитном порядке.
+
+### Пример оптимизации
+
+#### 1 этап
+
+``` Dockerfile
+FROM debian
+COPY . /opt/
+RUN apt-get update \
+    && apt-get install -y \
+        nginx \
+    && rm -rf /var/lib/apt/lists/*
+COPY custom.conf /etc/nginx/conf.d/
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]
+```
+
+Размер образа после сборки: **204 Мб**.
+
+#### 2 этап
+
+Добавили в `.dockerignore` директорию `.git`.
+
+Размер образа после сборки: **178 Мб**.
+
+#### 3 этап
+
+``` Dockerfile
+FROM alpine
+COPY . /opt/
+RUN apk add --no-cache nginx
+COPY custom.conf /etc/nginx/conf.d/
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]
+```
+
+Размер образа после сборки: **7 Мб**.
+
+#### 4 этап
+
+Оптимизация работы с кэшем. Код и конфигурация будут изменяться намного чаще, чем все остальное.
+
+``` Dockerfile
+FROM alpine
+RUN apk add --no-cache nginx
+EXPOSE 80
+COPY custom.conf /etc/nginx/conf.d/
+COPY . /opt/
+CMD ["nginx", "-g", "daemon off;"]
+```
+
+#### 5 этап
+
+``` Dockerfile
+FROM alpine:3.11.5
+RUN apk add --no-cache \
+    --repository http://dl-cdn.alpinelinux.org/alpine/v3.11/main \
+    nginx=1.16.1-r6
+EXPOSE 80
+COPY custom.conf /etc/nginx/conf.d/
+COPY . /opt/
+CMD ["nginx", "-g", "daemon off;"]
+```
+
+#### 6 этап
+
+``` Dockerfile
+FROM alpine:3.11.5
+ENV NGINX_VERSION 1.16.1-r6
+RUN apk add --no-cache \
+    --repository http://dl-cdn.alpinelinux.org/alpine/v3.11/main \
+    nginx=${NGINX_VERSION}
+EXPOSE 80
+COPY custom.conf /etc/nginx/conf.d/
+COPY . /opt/
+CMD ["nginx", "-g", "daemon off;"]
+```

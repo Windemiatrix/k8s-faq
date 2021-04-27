@@ -209,6 +209,7 @@ CMD ["--help"]
 Пример:
 
 ``` yml
+---
 version: '2'
 services: # Перечень контейнеров
   nginx:
@@ -236,6 +237,7 @@ services: # Перечень контейнеров
       timeout: 5s # Таймаут на команду
       retries: 5 # Количество повторов
       start_period: 1s # Отложенный запуск после старта контейнера
+...
 ```
 
 ### Примеры использования
@@ -243,6 +245,70 @@ services: # Перечень контейнеров
 `docker-compose -f docker-compose.production.yml -f docker-compose.test.yml up --abort-on-container-exit --exit-code-from test`
 
 Запуск инструкций из двух файлов. Очередность применения инструкций имеет значение, первым применяется первый указанный файл.
+
+## Kubernetes
+
+- `kubectl create -f <<filename>>` - создать объекты по конфигурации из файла (создать конфигурацию);
+- `kubectl apply -f <<filename>>` - изменить объекты по конфигурацию из файла (применить конфигурацию);
+- `kubectl delete -f <<filename>>` - отменить конфигурацию, ранее примененную из файла;
+- `kubectl delete pod <<name>>` - удаление `pod` в `namespace` default;
+- `kubectl delete pod --all` - удаление всех `pod` в `namespace` default;
+- `kubectl get pods` - отобразить созданные `pod` в `namespace` default;
+- `kubectl get replicasets` - отобразить созданные `replicaset` в `namespace` default;
+- `kubectl scale --replicas=<<num>> replicaset <<name>>` - изменение количества экземпляров объекта в `replicaset`;
+- `kubectl dscribe <<objecttype>> <<name>>` - просмотр подробной информации о созданном объекте (например, `kubectl dscribe replicaset my-rs`);
+
+### Конфигурационные файлы
+
+Структура:
+
+``` none
+Replicaset
+└─ Pod
+```
+
+Манифест Pod:
+
+``` yml
+---
+apiVersion: v1 # Обязательное поле, версия API
+kind: Pod # Обязательное поле, тип объекта
+metadata: # Обязательное поле, метаданные объекта
+  name: my-pos # Обязательное поле, наименование создаваемого объекта
+spec: # Обязательное поле, спецификация создаваемого объекта
+  containers: # Создаваемые контейнеры
+    - image: nginx:1.12 # Образ для создания контейнера
+      name: nginx # Наименование контейнера
+      ports: # Открытые порты
+        - containerPort: 80 # Порт, который будет открыт в Pod, не в контейнере
+...
+```
+
+Манифест Replicaset:
+
+``` yml
+---
+apiVersion: apps/v1
+kind: Replicaset
+metadata:
+  name: my-replicaset
+spec:
+  replicas: 3 # Количество экземпляров объекта
+  selector: # Выборка по объектам, которыми необходимо управлять
+    matchLabels: # Выборка по меткам
+      app: my-app
+  template: # Шаблон создаваемого объекта
+    metadata: # name указывать нельзя, т.к. будут попытки создания одноименных объектов
+      labels: # Метки для создаваемых объектов
+        app: my-app
+    spec:
+      containers:
+        - image: nginx:1.12
+          name: nginx
+          ports:
+            - containerPort: 80
+...
+```
 
 ## Полезные ссылки
 

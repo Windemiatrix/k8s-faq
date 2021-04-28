@@ -257,19 +257,24 @@ services: # Перечень контейнеров
 - `kubectl delete pod --all` - удаление всех `pod` в `namespace` default;
 - `kubectl get pods` - отобразить созданные `pod` в `namespace` default;
 - `kubectl get replicasets` - отобразить созданные `replicaset` в `namespace` default;
+- `kubectl get deployments` - отобразить созданные `deployment` в `namespace` default;
 - `kubectl scale --replicas=<<num>> replicaset <<name>>` - изменение количества экземпляров объекта в `replicaset`;
 - `kubectl dscribe <<objecttype>> <<name>>` - просмотр подробной информации о созданном объекте (например, `kubectl dscribe replicaset my-rs`);
+- `kubectl set image deployment <<name>> '*=nginx:1.13'` - замена образов контейнеров до новой версии;
+- `kubectl get pods -w` - `-w` позволяет наблюдать за объектами в реальном времени;
+- `kubectl rollout undo deployment <<name>>` - откат`deployment` на предыдущую версию;
 
 ### Конфигурационные файлы
 
 Структура:
 
 ``` none
-Replicaset
-└─ Pod
+Deployment
+└─Replicaset
+  └─Pod
 ```
 
-Манифест Pod:
+Манифест `Pod`:
 
 ``` yml
 ---
@@ -282,11 +287,11 @@ spec: # Обязательное поле, спецификация создав
     - image: nginx:1.12 # Образ для создания контейнера
       name: nginx # Наименование контейнера
       ports: # Открытые порты
-        - containerPort: 80 # Порт, который будет открыт в Pod, не в контейнере
+        - containerPort: 80 # Порт, который будет открыт в Pod, не в контейнере (не открывает порт)
 ...
 ```
 
-Манифест Replicaset:
+Манифест `Replicaset`:
 
 ``` yml
 ---
@@ -309,6 +314,60 @@ spec:
           name: nginx
           ports:
             - containerPort: 80
+...
+```
+
+Манифест `Deployment`
+
+``` yml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-deployment
+spec:
+  replices: 3
+  selector:
+    matchLabels:
+      app: my-app
+  strategy: # Способ обновления приложения
+    rollingUpdate: # Еще есть recreate
+      maxSurge: 1 # На какое количество можно увеличить количество реплик относительно replicas, можно указывать в процентах
+      maxUnavaible: 1 # На какое количество можно уменьшить количество реплик относительно replicas, можно указывать в процентах
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: my-app
+    spec:
+      containers:
+        - image: nginx:1.12
+          name: nginx
+          ports:
+            - containerPort: 80
+          readinessProbe: # Проверка, готово ли приложение для приема трафика
+            failureTreshold: 3 # Возможны 3 сбоя подряд
+            httpGet: # Еще есть exec (выполнение внутри контейнера) и проверка tcp порта
+              path: /
+              port: 80
+            periodSeconds: 10 # Периодичность проверки
+            successTreshold: 1 # Достаточно одной успешной пробы для сброса счетчика failureTreshold
+            timeoutSeconds: 1
+          livenessProbe: # Проверка на жизнь приложения
+            failureTreshold: 3
+            httpGet:
+              path: /
+              port: 80
+            periodSeconds: 10
+            successTreshold: 1
+            timeoutSeconds: 1
+            initialDelaySeconds: 10 # Первая проба выполняется спустя 10 секунд
+          resources:
+            requests: # Зарезервированные ресурсы для пода
+              cpu: 50m
+              memory: 100Mi
+            limits: # Предел потребления ресурсов для пода
+              cpu: 100m
+              memory: 100Mi
 ...
 ```
 

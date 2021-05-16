@@ -1,8 +1,36 @@
-# Конспект лекций Слёрм по Kubernetes
+# 1. Конспект лекций Слёрм по Kubernetes
+
+- [1. Конспект лекций Слёрм по Kubernetes](#1-конспект-лекций-слёрм-по-kubernetes)
+  - [1.1. Docker](#11-docker)
+    - [1.1.1. Примеры использования](#111-примеры-использования)
+  - [1.2. Оптимизация Dockerfile](#12-оптимизация-dockerfile)
+    - [1.2.1. Частые ошибки](#121-частые-ошибки)
+    - [1.2.2. Пример оптимизации](#122-пример-оптимизации)
+      - [1.2.2.1. 1 этап](#1221-1-этап)
+      - [1.2.2.2. 2 этап](#1222-2-этап)
+      - [1.2.2.3. 3 этап](#1223-3-этап)
+      - [1.2.2.4. 4 этап](#1224-4-этап)
+      - [1.2.2.5. 5 этап](#1225-5-этап)
+      - [1.2.2.6. 6 этап](#1226-6-этап)
+    - [1.2.3. Multistage сборка](#123-multistage-сборка)
+  - [1.3. Docker-compose](#13-docker-compose)
+    - [1.3.1. Примеры использования](#131-примеры-использования)
+  - [1.4. Kubernetes](#14-kubernetes)
+    - [1.4.1. Хранение данных](#141-хранение-данных)
+    - [1.4.2. Конфигурационные файлы](#142-конфигурационные-файлы)
+      - [1.4.2.1. Манифест `Pod`](#1421-манифест-pod)
+      - [1.4.2.2. Манифест `Replicaset`](#1422-манифест-replicaset)
+      - [1.4.2.3. Манифест `Deployment`](#1423-манифест-deployment)
+      - [1.4.2.4. Манифест `ConfigMap`](#1424-манифест-configmap)
+      - [1.4.2.5. Манифест `Secret`](#1425-манифест-secret)
+      - [1.4.2.6. Манифест `Service`](#1426-манифест-service)
+      - [1.4.2.7. Манифест Ingress](#1427-манифест-ingress)
+      - [1.4.2.8. Манифест PersistentVolumeClaim](#1428-манифест-persistentvolumeclaim)
+  - [1.5. Полезные ссылки](#15-полезные-ссылки)
 
 <https://www.youtube.com/playlist?list=PL8D2P0ruohOA4Y9LQoTttfSgsRwUGWpu6>
 
-## Docker
+## 1.1. Docker
 
 Директория для хранения Docker: `/var/lib/docker`.
 
@@ -28,7 +56,7 @@
 - `docker exec -it <<name>> <<command>>` - передача команды внутри контейнера; `-it` - интерактивный режим (не лучшая практика, только для дебага);
 - `docker run -v <</paht/to/host/dir>>:<</path/to/container/dir>> <<name>>` - монтирование директории в контейнер (не лучшая практика, только для дебага).
 
-### Примеры использования
+### 1.1.1. Примеры использования
 
 `docker run --name long --rm -d long`:
 
@@ -44,7 +72,7 @@
 
 - `-it` - интерактивный режим, позволяющий в данном примере подключиться к консоли контейнера.
 
-## Оптимизация Dockerfile
+## 1.2. Оптимизация Dockerfile
 
 Чего мы хотим?
 
@@ -66,7 +94,7 @@ CMD ["nginx", "-g", "daemon off;"]
 
 Размер образа после сборки: **222 Мб**.
 
-### Частые ошибки
+### 1.2.1. Частые ошибки
 
 - использование нескольких инструкций `RUN` подряд;
 - оставление кэша после работы утилит и пакетных менеджеров (например, `apt-get`);
@@ -84,9 +112,9 @@ CMD ["nginx", "-g", "daemon off;"]
 
 > При использовании пакетного менеджера для установки пакетов рекомендуется указывать пакеты в алфавитном порядке.
 
-### Пример оптимизации
+### 1.2.2. Пример оптимизации
 
-#### 1 этап
+#### 1.2.2.1. 1 этап
 
 ``` Dockerfile
 FROM debian
@@ -102,13 +130,13 @@ CMD ["nginx", "-g", "daemon off;"]
 
 Размер образа после сборки: **204 Мб**.
 
-#### 2 этап
+#### 1.2.2.2. 2 этап
 
 Добавили в `.dockerignore` директорию `.git`.
 
 Размер образа после сборки: **178 Мб**.
 
-#### 3 этап
+#### 1.2.2.3. 3 этап
 
 ``` Dockerfile
 FROM alpine
@@ -121,7 +149,7 @@ CMD ["nginx", "-g", "daemon off;"]
 
 Размер образа после сборки: **7 Мб**.
 
-#### 4 этап
+#### 1.2.2.4. 4 этап
 
 Оптимизация работы с кэшем. Код и конфигурация будут изменяться намного чаще, чем все остальное.
 
@@ -134,7 +162,7 @@ COPY . /opt/
 CMD ["nginx", "-g", "daemon off;"]
 ```
 
-#### 5 этап
+#### 1.2.2.5. 5 этап
 
 ``` Dockerfile
 FROM alpine:3.11.5
@@ -147,7 +175,7 @@ COPY . /opt/
 CMD ["nginx", "-g", "daemon off;"]
 ```
 
-#### 6 этап
+#### 1.2.2.6. 6 этап
 
 ``` Dockerfile
 FROM alpine:3.11.5
@@ -161,7 +189,7 @@ COPY . /opt/
 CMD ["nginx", "-g", "daemon off;"]
 ```
 
-### Multistage сборка
+### 1.2.3. Multistage сборка
 
 Пример:
 
@@ -196,7 +224,7 @@ CMD ["--help"]
 - `ENTRYPOINT` - в этой команде рекомендуется указывать само приложение;
 - `CMD` - в этой команде рекомендуется указывать флаги для запуска приложения.
 
-## Docker-compose
+## 1.3. Docker-compose
 
 Имя файла по умолчанию с инструкциями: `docker-compose.yml`.
 
@@ -242,29 +270,39 @@ services: # Перечень контейнеров
 ...
 ```
 
-### Примеры использования
+### 1.3.1. Примеры использования
 
 `docker-compose -f docker-compose.production.yml -f docker-compose.test.yml up --abort-on-container-exit --exit-code-from test`
 
 Запуск инструкций из двух файлов. Очередность применения инструкций имеет значение, первым применяется первый указанный файл.
 
-## Kubernetes
+## 1.4. Kubernetes
 
 - `kubectl create -f <<filename>>` - создать объекты по конфигурации из файла (создать конфигурацию);
 - `kubectl apply -f <<filename>>` - изменить объекты по конфигурацию из файла (применить конфигурацию);
 - `kubectl delete -f <<filename>>` - отменить конфигурацию, ранее примененную из файла;
 - `kubectl delete pod <<name>>` - удаление `pod` в `namespace` default;
 - `kubectl delete pod --all` - удаление всех `pod` в `namespace` default;
-- `kubectl get pods` - отобразить созданные `pod` в `namespace` default;
-- `kubectl get replicasets` - отобразить созданные `replicaset` в `namespace` default;
-- `kubectl get deployments` - отобразить созданные `deployment` в `namespace` default;
+- `kubectl get <<objecttype>>` - отобразить возданные объекты заданного класса в `namespace` default;
 - `kubectl scale --replicas=<<num>> replicaset <<name>>` - изменение количества экземпляров объекта в `replicaset`;
 - `kubectl dscribe <<objecttype>> <<name>>` - просмотр подробной информации о созданном объекте (например, `kubectl dscribe replicaset my-rs`);
 - `kubectl set image deployment <<name>> '*=nginx:1.13'` - замена образов контейнеров до новой версии;
 - `kubectl get pods -w` - `-w` позволяет наблюдать за объектами в реальном времени;
-- `kubectl rollout undo deployment <<name>>` - откат`deployment` на предыдущую версию;
+- `kubectl rollout undo deployment <<name>>` - откат `deployment` на предыдущую версию;
+- `kubectl port-forward <<name>> <<portA>>:<<portB>> &` - публикация порта из пода `name` в локальную машину, где `portA` - порт пода, `portB` - порт локальной машины, `&` - отправить процесс в `foreground` (работать в фоне);
+- `kibectl get <<objecttype>> <<name>> -o yaml` - просмотр конфигурации `kubernetes` в виде `yaml` файла;
+- `kibectl create secret generic <<name>> --from-literal=<<value>>` - создание конфигурации `secret` из консоли;
+- `kubectl logs <<name>>` - просмотр логов пода;
+- `kubectl exec -t -i <<name>> command` - выполнение команды внутри пода;
+- `kubectl explain <<objecttype>>` - описание объекта определенного типа.
 
-### Конфигурационные файлы
+### 1.4.1. Хранение данных
+
+- Persistent volume - том для хранения данных;
+- Persistent volume clain - запрос на подключение persistant volume;
+- Persistent volume provisioner.
+
+### 1.4.2. Конфигурационные файлы
 
 Структура:
 
@@ -272,9 +310,13 @@ services: # Перечень контейнеров
 Deployment
 └─Replicaset
   └─Pod
+ConfigMap
+Secret
+Service
+PersistentVolumeClaim
 ```
 
-Манифест `Pod`:
+#### 1.4.2.1. Манифест `Pod`
 
 ``` yml
 ---
@@ -291,7 +333,7 @@ spec: # Обязательное поле, спецификация создав
 ...
 ```
 
-Манифест `Replicaset`:
+#### 1.4.2.2. Манифест `Replicaset`
 
 ``` yml
 ---
@@ -317,7 +359,7 @@ spec:
 ...
 ```
 
-Манифест `Deployment`
+#### 1.4.2.3. Манифест `Deployment`
 
 ``` yml
 apiVersion: apps/v1
@@ -371,15 +413,163 @@ spec:
 ...
 ```
 
-## Полезные ссылки
+#### 1.4.2.4. Манифест `ConfigMap`
 
-- <https://docs.docker.com/storage/volumes/>
-- <https://docs.docker.com/config/containers/resource_constraints/>
-- <https://habr.com/ru/company/selectel/blog/279281/>
-- <https://fabiokung.com/2014/03/13/memory-inside-linux-containers/>
-- <https://clck.ru/MBtKt> - про CI/CD в целом
-- <https://docs.docker.com/compose/>
-- <https://docs.docker.com/compose/gettingstarted/>
-- <https://docs.gitlab.com/ee/ci/docker/using_docker_build.html>
-- <https://docs.docker.com/develop/develop-images/baseimages/>
-- <https://habr.com/ru/company/southbridge/blog/329138/>
+``` yml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: my-configmap
+data:
+  default.conf: |
+    server {
+      listen       80 default_server;
+      server_name  _;
+      default_type text/plain;
+      location / {
+        return 200 '$hosthane\n';
+      }
+    }
+```
+
+Использование `ConfigMap` в манифесте `Deployment`:
+
+``` yml
+...
+kind: Deployment
+...
+spec:
+  ...
+  template:
+    ...
+    spec:
+      containers:
+      - image: nginx:1.12
+        ...
+        volumeMounts:
+        - name: config
+          mountPath: /etc/nginx/conf.d/
+      ...
+      volumes:
+      - name: config
+        configMap:
+          name: my-configmap
+...
+```
+
+#### 1.4.2.5. Манифест `Secret`
+
+``` bash
+kibectl create secret generic test1 --from-literal=asdf
+```
+
+``` yml
+apiVersion: v1
+data:
+  test1: YXNkZg==
+kind: Secret
+metadata:
+  name: test
+  namespace: s000005
+  resourceVersion: "81874416"
+  selfLink: /qpi/v1/namespaces/s000005/secret/test
+  uid: 43071daf-7c33-4b0b-9a9f-6a9801de56bd
+type: Opaque
+```
+
+``` bash
+$ echo YXNkZg== | base64 -d
+asdfs000005@sbox.slurm.io
+```
+
+``` yml
+...
+kind: Deployment
+...
+spec:
+  ...
+  template:
+    ...
+    spec:
+      containers:
+      - image: nginx:1.12
+        ...
+        env:
+          - name: TEST
+            value: foo
+          - name: TEST_1
+            valueFrom:
+              secretKeyRef:
+                name: test
+                key: test1
+        ...
+```
+
+Секреты передаются в поды через переменные окружения. Посмотреть их можно командой `env` в поде.
+
+#### 1.4.2.6. Манифест `Service`
+
+``` yml
+apiVersion: v1
+kind: Service
+metadata:
+  mane: my-service
+spec:
+  ports:
+  - port: 80 # Порт, на котором сервис слушает запросы
+    targetPort: 80 # Порт, на котором под принимает запрос
+  selector: # Запросы будут отправляться на поды с этими метками
+    app: my-app
+  type: ClusterIP
+```
+
+Поду будет назначен `clusterIP` - случайный IP адрес, по которому слушаются входящие соединения. Также будет создана dns запись в service discovery у kubernetes.
+
+При создании инстанса `Service` автоматически создается инстанс `Endpoint`, который в себе содержит все внутренние сокеты, на которые нужно отправлять входящие запросы.
+
+#### 1.4.2.7. Манифест Ingress
+
+Для добавления данного функционала необходимо установить дополнительное приложение, называемое `Ingress Controller`.
+
+``` yml
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: my-ingress
+spec:
+  rules:
+  - host: s000005.k8s.slurm.io
+    http:
+      paths:
+      - backend:
+          serviceName: my-service
+          servicePort: 80
+        path: /
+```
+
+#### 1.4.2.8. Манифест PersistentVolumeClaim
+
+``` yml
+apiVersion: v1
+kind: PersistentVolumeClaim
+  name: my-claim
+spec:
+  accessModes:
+  - ReadWriteOnce # Эксклюзивный под может читать и писать данные. Может быть ReadWriteMany для множественного доступа.
+  resources:
+    requests:
+      storage: 1Gi
+```
+
+## 1.5. Полезные ссылки
+
+- <https://docs.docker.com/storage/volumes/>;
+- <https://docs.docker.com/config/containers/resource_constraints/>;
+- <https://habr.com/ru/company/selectel/blog/279281/>;
+- <https://fabiokung.com/2014/03/13/memory-inside-linux-containers/>;
+- <https://clck.ru/MBtKt> - про CI/CD в целом;
+- <https://docs.docker.com/compose/>;
+- <https://docs.docker.com/compose/gettingstarted/>;
+- <https://docs.gitlab.com/ee/ci/docker/using_docker_build.html>;
+- <https://docs.docker.com/develop/develop-images/baseimages/>;
+- <https://habr.com/ru/company/southbridge/blog/329138/>.

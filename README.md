@@ -19,13 +19,17 @@
     - [1.4.1. Хранение данных](#141-хранение-данных)
     - [1.4.2. Конфигурационные файлы](#142-конфигурационные-файлы)
       - [1.4.2.1. Манифест `Pod`](#1421-манифест-pod)
-      - [1.4.2.2. Манифест `Replicaset`](#1422-манифест-replicaset)
+      - [1.4.2.2. Манифест `ReplicaSet`](#1422-манифест-replicaset)
       - [1.4.2.3. Манифест `Deployment`](#1423-манифест-deployment)
       - [1.4.2.4. Манифест `ConfigMap`](#1424-манифест-configmap)
       - [1.4.2.5. Манифест `Secret`](#1425-манифест-secret)
       - [1.4.2.6. Манифест `Service`](#1426-манифест-service)
-      - [1.4.2.7. Манифест Ingress](#1427-манифест-ingress)
-      - [1.4.2.8. Манифест PersistentVolumeClaim](#1428-манифест-persistentvolumeclaim)
+      - [1.4.2.7. Манифест `Ingress`](#1427-манифест-ingress)
+      - [1.4.2.8. Манифест `PersistentVolumeClaim`](#1428-манифест-persistentvolumeclaim)
+      - [1.4.2.9. Манифест `DaemonSet`](#1429-манифест-daemonset)
+      - [1.4.2.10. Манифест `StatefulSet`](#14210-манифест-statefulset)
+        - [1.4.2.10.1. Манифест `initContainers`](#142101-манифест-initcontainers)
+        - [1.4.2.10.2. Headless Service](#142102-headless-service)
   - [1.5. Полезные ссылки](#15-полезные-ссылки)
 
 <https://www.youtube.com/playlist?list=PL8D2P0ruohOA4Y9LQoTttfSgsRwUGWpu6>
@@ -306,7 +310,7 @@ services: # Перечень контейнеров
 
 Структура:
 
-``` none
+``` bash
 Deployment
 └─Replicaset
   └─Pod
@@ -314,9 +318,12 @@ ConfigMap
 Secret
 Service
 PersistentVolumeClaim
+DaemodSet
 ```
 
 #### 1.4.2.1. Манифест `Pod`
+
+Группа из одного или нескольких контейнеров с общим хранилищем и сетевыми ресурсами, а также спецификация того, как запускать контейнеры.
 
 ``` yml
 ---
@@ -333,7 +340,9 @@ spec: # Обязательное поле, спецификация создав
 ...
 ```
 
-#### 1.4.2.2. Манифест `Replicaset`
+#### 1.4.2.2. Манифест `ReplicaSet`
+
+Цель `ReplicaSet` - поддерживать стабильный набор реплик `Pod`, работающих в любой момент времени. Таким образом, он часто используется, чтобы гарантировать доступность определенного количества идентичных модулей.
 
 ``` yml
 ---
@@ -360,6 +369,10 @@ spec:
 ```
 
 #### 1.4.2.3. Манифест `Deployment`
+
+`Deployment` обеспечивает декларативные обновления для модулей `Pod` и `ReplicaSet`.
+
+Вы описываете желаемое состояние в `Deployment`, а `Deployment` контроллер изменяет фактическое состояние на желаемое с контролируемой скоростью. Вы можете определить `Deployment` для создания новых `ReplicaSet` или для удаления существующих `Deployment` и использования всех их ресурсов с новыми `Deployment`.
 
 ``` yml
 apiVersion: apps/v1
@@ -415,6 +428,10 @@ spec:
 
 #### 1.4.2.4. Манифест `ConfigMap`
 
+`ConfigMap` - это объект API, используемый для хранения неконфиденциальных данных в парах "ключ-значение". `Pods` могут использовать `ConfigMaps` как переменные среды, аргументы командной строки или как файлы конфигурации в томе.
+
+`ConfigMap` позволяет отделить конфигурацию среды от образов контейнеров, чтобы ваши приложения были легко переносимы.
+
 ``` yml
 apiVersion: v1
 kind: ConfigMap
@@ -458,6 +475,8 @@ spec:
 ```
 
 #### 1.4.2.5. Манифест `Secret`
+
+`Secret` позволяет хранить и управлять конфиденциальной информацией, такой как пароли, токены OAuth и ключи ssh. Хранить конфиденциальную информацию в `Secret` безопаснее и гибче, чем дословно помещать ее в определение `Pod` или в образ контейнера.
 
 ``` bash
 kibectl create secret generic test1 --from-literal=asdf
@@ -509,6 +528,8 @@ spec:
 
 #### 1.4.2.6. Манифест `Service`
 
+Абстрактный способ представить приложение, работающее на наборе `Pod`'ов, в качестве сетевой службы. С `Kubernetes` вам не нужно изменять приложение, чтобы использовать незнакомый механизм обнаружения сервисов. `Kubernetes` дает `Pod`'ам свои собственные IP-адреса и одно DNS-имя для набора `Pod`'ов и может распределять нагрузку между ними.
+
 ``` yml
 apiVersion: v1
 kind: Service
@@ -527,7 +548,9 @@ spec:
 
 При создании инстанса `Service` автоматически создается инстанс `Endpoint`, который в себе содержит все внутренние сокеты, на которые нужно отправлять входящие запросы.
 
-#### 1.4.2.7. Манифест Ingress
+#### 1.4.2.7. Манифест `Ingress`
+
+Объект API, который управляет внешним доступом к службам в кластере, обычно HTTP. `Ingress` может обеспечивать балансировку нагрузки, завершение SSL и виртуальный хостинг на основе имен.
 
 Для добавления данного функционала необходимо установить дополнительное приложение, называемое `Ingress Controller`.
 
@@ -547,7 +570,9 @@ spec:
         path: /
 ```
 
-#### 1.4.2.8. Манифест PersistentVolumeClaim
+#### 1.4.2.8. Манифест `PersistentVolumeClaim`
+
+`PersistentVolumeClaim` (PVC) - это запрос пользователя на хранение. Он похож на `Pod`. `Pos`'ы потребляют ресурсы узлов, а PVC - PersistentVolume ресурсы. `Pod`'ы могут запрашивать определенные уровни ресурсов (ЦП и память). `Claim` могут запрашивать определенный размер и режимы доступа (например, они могут быть установлены ReadWriteOnce, ReadOnlyMany или ReadWriteMany, см. AccessModes).
 
 ``` yml
 apiVersion: v1
@@ -559,6 +584,209 @@ spec:
   resources:
     requests:
       storage: 1Gi
+```
+
+#### 1.4.2.9. Манифест `DaemonSet`
+
+`DaemonSet` гарантирует, что все (или некоторые) `Node` запускают копию `Pod`. По мере добавления `Node` в кластер к ним добавляются `Pod`'ы. Когда `Nod`'ы удаляются из кластера, эти `Pod`'ы собираются сборщиком мусора.
+
+``` yml
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  labels:
+    app: node-exporter
+  name: node-exporter
+spec:
+  updateStrategy:
+    rollingUpdate:
+      maxUnavailable: 1
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app: node-exporter
+    template:
+      metadata:
+        labels:
+          app: node-exporter
+      spec:
+        containers:
+        - args:
+          - --web.listen-address=0.0.0.0:9101
+          - --path.procfs=/host/proc
+          - --path.sysfs=/host/sys
+          - --collector.filesystem.ignored-mount-points=^/(dev|proc|sys|var/lib/docker/.+)($|/)
+          - --collector.filesystem.ignored-fs-type=^(autofs|binfmt_misc|cgroup|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|mqueue|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|sysfs|tracefs)$
+          image: quay.io/prometheus/node-exporter:v0.16.0
+          imagePullPolicy: IfNotPresent
+          name: node-exporter
+          volumeMounts:
+          - mountPath: /host/proc
+            name: proc
+          - mountPath: /host/sys
+            name: sys
+          - mountPath: /host/root
+            name: root
+            readOnly: true
+        hostNetwork: true # Node Exporter прокидывает сетевое имя узла
+        hostPid: true     # и пространство PID'ов
+        nodeselector:     # DaemonSet могут запускаться только на узлах с перечисленными метками
+          beta.kubernetes.io/os: linux
+        securityContext:  # Запускаться не от рута
+          runAsNonRoot: true
+          runAsUser: 65534
+        toleations:       # Не запускаться на мастер нодах
+        - effect: NoSchedule
+          key: node-role.kubernetes.io/master
+        volumes:          # Список томов, монтируются внутрь контейнера
+        - hostPath:
+            path: /proc
+            type: ""
+          name: proc
+        - hostPath:
+            path: /sys
+            type: ""
+          name: sys
+        - hostPath:
+            path: /
+            type: ""
+          name: root
+```
+
+#### 1.4.2.10. Манифест `StatefulSet`
+
+`StatefulSet` - это объект API, используемый для управления приложениями с отслеживанием состояния. Управляет развертыванием и масштабированием набора `Pod`'ов и предоставляет гарантии порядка и уникальности этих `Pod`'ов.
+
+Для запуска манифеста не достаточно одной инструкции, потребуются дополнительные манифесты. Подробнее в официальной документации.
+
+``` yml
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: rabbitmq
+spec:
+  serviceName: rabbitmq
+  replicas: 3
+  selector:
+    matchLabels:
+      app: rabbitmq
+  template:
+    metadata:
+      labels:
+        app: rabbitmq
+    spec:
+      serviceAccountName: rabbitmq
+      terminationGracePeriodSeconds: 10
+      containers:
+        - name: rabbitmq-k8s
+          image: rabbitmq:3.7
+          env:
+            - name: MY_POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: RABBITMQ_USE_LONGNAME
+              value: "true"
+            - name: RABBITMQ_NODENAME
+              value: "rabbit@$(MY_POD_IP)"
+            - name: K8S_SERVICE_NAME
+              value: "rabbitmq"
+            - name: RABBITMQ_ERLANG_COOKIE
+              value: "mycookie"
+          ports:
+            - name: amqp
+              protocol: TCP
+              containerPort: 5672
+          livenessProbe:
+            exec:
+              command: ["rabbitmqctl", "status"]
+            initialDelaySeconds: 60
+            periodSeconds: 60
+            timeoutSeconds: 15
+          readinessProbe:
+            exec:
+              command: ["rabbitmq", "status"]
+            initialDelaySeconds: 20
+            periodSeconds: 60
+            timeoutSeconds: 10
+          imagePullPolicy: Always
+          volumeMounts:
+            - name: config-volume
+              mountPath: /etc/rabbitmq
+            - name: data
+              mountPath: /var/lib/rabbitmq
+      volumes:
+        - name: config-volume
+          configMap:
+            name: rabbitmq-config
+            items:
+              - key: rabbitmq.conf
+                path: rabbitmq.conf
+              - key: enabled_plugins
+                path: enabled_plugins
+      affinity:           
+        podAntiAffinity: # Позволяет распределить поды по узлам с целью избежать их столкновения
+        # podAffinity
+        # nodeAffinity - Предпочтение к запуску на узлах. В данном примере - возможно запуститься на одном из двух узлов.
+        #   nodeSelectorTerms:
+        #   - matchExpressions:
+        #     - key: kubernetes.io/e2e-az-name
+        #       orepator: In
+        #       values:
+        #       - e2e-az1
+        #       - e2e-az1
+        #   requiredDuringSchedulingIgnoredDuringExecution: - Affinity обязательно должна быть выполнена
+          preferredDuringSchedulingIgnoredDuringExecution: # Affinity должна быть выполнена по возможности
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - rabbitmq
+                topologyKey: kubernetes.io/hostname
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi
+        storageClassName: local-storage
+```
+
+##### 1.4.2.10.1. Манифест `initContainers`
+
+- Позволяет выполнить настройки перед запуском основного приложения.
+- Выполняется по порядку описания в манифесте.
+- Можно монтировать те же тома, что и в основных контейнерах.
+- Можно запускать от другого пользователя.
+- Должен выполнить действие и остановиться.
+
+##### 1.4.2.10.2. Headless Service
+
+- .spec.clusterIP: None.
+- Резолвится в IP всех эндпоинтов.
+- Создает записи с именами всех эндпоинтов.
+
+``` yml
+kind: Service
+apiVersion: v1
+metadata:
+  name: rabbitmq
+  labels:
+    app: rabbitmq
+spec:
+  clusterIP: None
+  ports:
+    - name: amqp
+      protocol: TCP
+      port: 5672
+      targetPort: 5672
+  selector:
+    app: rabbitmq
 ```
 
 ## 1.5. Полезные ссылки

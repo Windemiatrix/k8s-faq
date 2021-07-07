@@ -24,8 +24,15 @@
       - [1.4.2.4. Манифест `ConfigMap`](#1424-манифест-configmap)
       - [1.4.2.5. Манифест `Secret`](#1425-манифест-secret)
       - [1.4.2.6. Манифест `Service`](#1426-манифест-service)
-      - [1.4.2.7. Манифест Ingress](#1427-манифест-ingress)
-      - [1.4.2.8. Манифест PersistentVolumeClaim](#1428-манифест-persistentvolumeclaim)
+      - [1.4.2.7. Манифест `Ingress`](#1427-манифест-ingress)
+      - [1.4.2.8. Манифест `PersistentVolumeClaim`](#1428-манифест-persistentvolumeclaim)
+      - [1.4.2.9. Static Pod](#1429-static-pod)
+      - [1.4.2.10. Манифест `DaemonSet`](#14210-манифест-daemonset)
+      - [Манифест `StatefulSet`](#манифест-statefulset)
+      - [Headless Service](#headless-service)
+    - [1.4.3. Настройка запуска подов на узлах](#143-настройка-запуска-подов-на-узлах)
+      - [1.4.3.1. Affinity](#1431-affinity)
+      - [1.4.3.2. Tolerations & taint](#1432-tolerations--taint)
   - [1.5. Полезные ссылки](#15-полезные-ссылки)
 
 <https://www.youtube.com/playlist?list=PL8D2P0ruohOA4Y9LQoTttfSgsRwUGWpu6>
@@ -527,7 +534,9 @@ spec:
 
 При создании инстанса `Service` автоматически создается инстанс `Endpoint`, который в себе содержит все внутренние сокеты, на которые нужно отправлять входящие запросы.
 
-#### 1.4.2.7. Манифест Ingress
+#### 1.4.2.7. Манифест `Ingress`
+
+`Kubernetes Ingress` – это ресурс для добавления правил маршрутизации трафика из внешних источников в службы в кластере kubernetes.
 
 Для добавления данного функционала необходимо установить дополнительное приложение, называемое `Ingress Controller`.
 
@@ -547,7 +556,9 @@ spec:
         path: /
 ```
 
-#### 1.4.2.8. Манифест PersistentVolumeClaim
+#### 1.4.2.8. Манифест `PersistentVolumeClaim`
+
+`PersistentVolumeClaim` (PVC) есть не что иное как запрос к Persistent Volumes на хранение от пользователя. Это аналог создания Pod на ноде.
 
 ``` yml
 apiVersion: v1
@@ -559,6 +570,302 @@ spec:
   resources:
     requests:
       storage: 1Gi
+```
+
+#### 1.4.2.9. Static Pod
+
+Данные поды запускаются не `API`, а `kubelet` при запуске. Манифесты лежат в директории `/etc/kubernetes/manifest` на каждом узле. Из-за этого изменения в конфигурацию необходимо вносить так же - на каждом узле.
+
+#### 1.4.2.10. Манифест `DaemonSet`
+
+`DaemonSet` - гарантирует, что определенный под будет запущен на всех (или некоторых) нодах.
+
+``` yml
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  labels:
+    app: node-exporter
+  name: node-exporter
+spec:
+  updateStrategy:
+    rollingUpdate:
+      maxUnavailable: 1
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app: node-exporter
+  template:
+    metadata:
+      labels:
+        app: node-exporter
+    spec:
+      containers:
+      - args:
+        - --web.listen-address=0.0.0.0:9101
+        - --path.procfs=/host/proc
+        - --path.sysfs=/host/sys
+        - --collector.filesystem.ignored-mount-points=^/(dev|proc|sys|var/lib/docker/.+)($|/)
+        - --collector.filesystem.ignored-fs-type=^(autofs|binfmt_misc|cgroup|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|mqueue|overlay|croc|procfs|pstore|rpc_pipefs|securityfs|sysfs|tracefs)$
+        image: quay.io/prometheus/node-exporter:v0.16.0
+        imagePullPolicy: IfNotPresent
+        name: node-exporter
+        volumeMounts:
+        - mountPath: /host/proc
+          name: proc
+        - mountPath: /host/sys
+          name: sys
+        - mountPath: /host/root
+          name: root
+          readOnly: true
+      hostNetwork: true
+      hostPID: true
+      nodeSelector:
+        beta.kubernetes.io.os: linux
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+      tolerations:
+      - effect: NoSchedule
+        key: node-role.kubernetes.io/master
+      volumes:
+      - hostPath:
+          path: /proc
+          type: ""
+        name: proc
+      - hostPath:
+          path: /sys
+          type: ""
+        name: sys
+      - hostPath:
+          path: /
+          type: ""
+        name: root
+```
+
+#### Манифест `StatefulSet`
+
+- Позволяет запускать группу подов (как Deployment)
+  - Гарантирует их уникальность
+  - Гарантирует их последовательность
+- PVC template
+  - При удалении не удаляет PVC
+- Используется для запуска приложения с сохранением состояния
+  - Rabbit
+  - DBs
+  - Redis
+  - Kafka
+  - ...
+
+RabbitMQ - исключение. Единственная база данных, которую можно запускать в kubernetes, умеет объединяться в кластер.
+
+Набор манифестов длф RabbitMQ, взят из документации:
+
+``` bash
+.
+..
+configmap.yaml
+rolebindint.yaml
+role.yaml
+serviceaccount.yaml
+service.yaml
+statefulset.yaml
+```
+
+``` yml
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: rabbitmq
+spec:
+  serviceName: rabbitmq
+  replicas: 3
+  selector:
+    matchLabels:
+      app: rabbitmq
+  template:
+    metadata:
+      labels:
+        app: rabbitmq
+    spec:
+      serviceAccountName: rabbitmq
+      terminationGracePeriodSeconds: 10
+      containers:
+        - name: rabbitmq-k8s
+          image: rabbitmq:3.7
+          env:
+              - name: MY_POD_IP
+                valueFrom:
+                  fiendRef:
+                    fieldPath: status.podIP
+              - name: RABBITMQ_USE_LONGNAME
+                value: "true"
+              - mane: RABBITMQ_NODENAME
+                value: "rabbit@$(MY_POD_IP)"
+              - name: K8S_SERVICE_NAME
+                value: "rabbitmq"
+              - name: RABBITMQ_ERLANG_COOKIE
+                value: "mycookie"
+          ports:
+            - name: amqp
+              protocol: TCP
+              containerPort: 5672
+          livenessProbe:
+            exec:
+              command: ["rabbitmqctl", "status"]
+            initialDelaySeconds: 60
+            periodSeconds: 60
+            timeoutSeconds: 15
+          readinessProbe:
+            exec:
+              command: ["rabbitmqctl", "status"]
+            initialDelaySeconds: 20
+            periodSeconds: 60
+            timeoutSeconds: 15
+          imagePullPolicy: Always
+          volumeMounts:
+            - name: config-volume
+              mountPath: /etc/rabbitmq
+            - name: data
+              mountPath: /var/lib/rabbitmq
+      volumes:
+        - name: config-volume
+          configMap:
+            name: rabbitmq-config
+            items:
+              - key: rabbitmq.conf
+                path: rabbitmq.conf
+              - key: enabled_plugins
+                path: enabled_plugins
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - rabbitmq
+                topologyKey: kubernetes.io/hostname
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi
+        storageClassName: local-storage
+```
+
+#### Headless Service
+
+Это сервис типа ClusterIP, у которого в поле `.spec.clusterIP` указано значение `None`. Этому сервису не назначается IP адрес, вместо этого создаются DNS записи типа А, которые указывают все поды нашего StatefulSet'а. Также создаются отдельные записи с именами подов, которые указывают на конкретные поды, их IP адреса.
+
+Такой подход позволяет реализовать концепцию сбора инстансов базы данных в StatefulSet в какой-то кластер.
+
+``` yml
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: rabbitmq
+  labels:
+    app: rabbitmq
+spec:
+  clusterIP: None
+  ports:
+    - name: amqp
+      protocol: TCP
+      port: 5672
+      targetPort: 5672
+  selector:
+    app: rabbitmq
+```
+
+``` bash
+$ kubectl get svc
+NAME         TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)    AGE
+rabbitmq     ClusterIP   None         <none>        5672/TCP   18m
+$ kubectl get qp
+NAME         ENDPOINTS                                              AGE
+rabbitmq     10.244.1.21:5672,10.244.3.179:5672,10.244.3.180:5672   18m
+$ nslookup rabbitmq
+Server:    10.96.0.10
+Address:   10.96.0.10#53
+
+Name:    rabbitmq.default.svc.cluster.local
+Address: 10.244.3.180
+Name:    rabbitmq.default.svc.cluster.local
+Address: 10.244.3.179
+Name:    rabbitmq.default.svc.cluster.local
+Address: 10.244.1.21
+$ nslookup rabbitmq-0.rabbitmq
+Server:    10.96.0.10
+Address:   10.96.0.10#53
+
+Name:    rabbitmq-0.rabbitmq.default.svc.cluster.local
+Address: 10.244.3.179
+```
+
+### 1.4.3. Настройка запуска подов на узлах
+
+#### 1.4.3.1. Affinity
+
+Задает алгоритм распределения подов между узлами, устанавливает предпочтения для запуска. Бывает 3 видов: `podAffinity`, `podAntiAffinity` и `nodeAffinity`.
+
+- `nodeAffinity` - на каких узлах должен запускаться под.
+- `podAntiAffinity` - позволяет распределить поды на узлах таким образом, чтобы они не сталкивались.
+
+``` yml
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution: # Обязательно должна быть выполнена при распределении подов на узлы
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/e2e-az-name # Имя зоны доступности. Поды должны запускаться на узлах с данной меткой. Ниже указаны значения метки.
+          operator: In
+          values:
+          - e2e-az1
+          - e2e-az2
+```
+
+``` yml
+affinity:
+  nodeAffinity:
+    preferedDuringSchedulingIgnoredDuringExecution: # По возможности должна быть выполнена при распределении подов на узлы
+      - weight: 1 # Вес правила. Чем больше вес, тем правило предпочтительнее
+        preference:
+          matchExpressions:
+          - key: another-node-label-key
+            operator: Exists # Метка должна существовать. Значение метки не важно
+```
+
+#### 1.4.3.2. Tolerations & taint
+
+Сопротивляемость и зараза. На узлы мы вешаем taint, объявляя его заразным. Scheduler при распределении поды на узлы проверяет, есть ли у пода, который он распределяет, toleration - сопротивляемость той заразе, которая есть на узле. Если пода есть сопротивляемость, то этот под на узле будет запущен.
+
+`effect: NoSchedule` - запущенные узлы не будут убиты. Если значение `NoExecute` - запущенные узлы будут убиты.
+
+``` yml
+...
+taints:
+- effect: NoSchedule
+  key: node-role.kubernetes.io/master
+  value: true
+...
+```
+
+``` yml
+...
+tolerations:
+- effect: NoSchedule
+  operation: Exists
+  key: node-role.kubernetes.io/master
+...
 ```
 
 ## 1.5. Полезные ссылки

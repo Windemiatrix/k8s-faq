@@ -19,7 +19,7 @@
     - [1.4.1. Хранение данных](#141-хранение-данных)
     - [1.4.2. Конфигурационные файлы](#142-конфигурационные-файлы)
       - [1.4.2.1. Манифест `Pod`](#1421-манифест-pod)
-      - [1.4.2.2. Манифест `Replicaset`](#1422-манифест-replicaset)
+      - [1.4.2.2. Манифест `ReplicaSet`](#1422-манифест-replicaset)
       - [1.4.2.3. Манифест `Deployment`](#1423-манифест-deployment)
       - [1.4.2.4. Манифест `ConfigMap`](#1424-манифест-configmap)
       - [1.4.2.5. Манифест `Secret`](#1425-манифест-secret)
@@ -28,8 +28,9 @@
       - [1.4.2.8. Манифест `PersistentVolumeClaim`](#1428-манифест-persistentvolumeclaim)
       - [1.4.2.9. Static Pod](#1429-static-pod)
       - [1.4.2.10. Манифест `DaemonSet`](#14210-манифест-daemonset)
-      - [Манифест `StatefulSet`](#манифест-statefulset)
-      - [Headless Service](#headless-service)
+      - [1.4.2.11. Манифест `StatefulSet`](#14211-манифест-statefulset)
+        - [1.4.2.11.1. Манифест `initContainers`](#142111-манифест-initcontainers)
+      - [1.4.2.12. Headless Service](#14212-headless-service)
     - [1.4.3. Настройка запуска подов на узлах](#143-настройка-запуска-подов-на-узлах)
       - [1.4.3.1. Affinity](#1431-affinity)
       - [1.4.3.2. Tolerations & taint](#1432-tolerations--taint)
@@ -313,7 +314,7 @@ services: # Перечень контейнеров
 
 Структура:
 
-``` none
+``` bash
 Deployment
 └─Replicaset
   └─Pod
@@ -321,9 +322,12 @@ ConfigMap
 Secret
 Service
 PersistentVolumeClaim
+DaemodSet
 ```
 
 #### 1.4.2.1. Манифест `Pod`
+
+Группа из одного или нескольких контейнеров с общим хранилищем и сетевыми ресурсами, а также спецификация того, как запускать контейнеры.
 
 ``` yml
 ---
@@ -340,7 +344,9 @@ spec: # Обязательное поле, спецификация создав
 ...
 ```
 
-#### 1.4.2.2. Манифест `Replicaset`
+#### 1.4.2.2. Манифест `ReplicaSet`
+
+Цель `ReplicaSet` - поддерживать стабильный набор реплик `Pod`, работающих в любой момент времени. Таким образом, он часто используется, чтобы гарантировать доступность определенного количества идентичных модулей.
 
 ``` yml
 ---
@@ -367,6 +373,10 @@ spec:
 ```
 
 #### 1.4.2.3. Манифест `Deployment`
+
+`Deployment` обеспечивает декларативные обновления для модулей `Pod` и `ReplicaSet`.
+
+Вы описываете желаемое состояние в `Deployment`, а `Deployment` контроллер изменяет фактическое состояние на желаемое с контролируемой скоростью. Вы можете определить `Deployment` для создания новых `ReplicaSet` или для удаления существующих `Deployment` и использования всех их ресурсов с новыми `Deployment`.
 
 ``` yml
 apiVersion: apps/v1
@@ -422,6 +432,10 @@ spec:
 
 #### 1.4.2.4. Манифест `ConfigMap`
 
+`ConfigMap` - это объект API, используемый для хранения неконфиденциальных данных в парах "ключ-значение". `Pods` могут использовать `ConfigMaps` как переменные среды, аргументы командной строки или как файлы конфигурации в томе.
+
+`ConfigMap` позволяет отделить конфигурацию среды от образов контейнеров, чтобы ваши приложения были легко переносимы.
+
 ``` yml
 apiVersion: v1
 kind: ConfigMap
@@ -465,6 +479,8 @@ spec:
 ```
 
 #### 1.4.2.5. Манифест `Secret`
+
+`Secret` позволяет хранить и управлять конфиденциальной информацией, такой как пароли, токены OAuth и ключи ssh. Хранить конфиденциальную информацию в `Secret` безопаснее и гибче, чем дословно помещать ее в определение `Pod` или в образ контейнера.
 
 ``` bash
 kibectl create secret generic test1 --from-literal=asdf
@@ -516,6 +532,8 @@ spec:
 
 #### 1.4.2.6. Манифест `Service`
 
+Абстрактный способ представить приложение, работающее на наборе `Pod`'ов, в качестве сетевой службы. С `Kubernetes` вам не нужно изменять приложение, чтобы использовать незнакомый механизм обнаружения сервисов. `Kubernetes` дает `Pod`'ам свои собственные IP-адреса и одно DNS-имя для набора `Pod`'ов и может распределять нагрузку между ними.
+
 ``` yml
 apiVersion: v1
 kind: Service
@@ -536,7 +554,7 @@ spec:
 
 #### 1.4.2.7. Манифест `Ingress`
 
-`Kubernetes Ingress` – это ресурс для добавления правил маршрутизации трафика из внешних источников в службы в кластере kubernetes.
+Объект API, который управляет внешним доступом к службам в кластере, обычно HTTP. `Ingress` может обеспечивать балансировку нагрузки, завершение SSL и виртуальный хостинг на основе имен.
 
 Для добавления данного функционала необходимо установить дополнительное приложение, называемое `Ingress Controller`.
 
@@ -558,7 +576,7 @@ spec:
 
 #### 1.4.2.8. Манифест `PersistentVolumeClaim`
 
-`PersistentVolumeClaim` (PVC) есть не что иное как запрос к Persistent Volumes на хранение от пользователя. Это аналог создания Pod на ноде.
+`PersistentVolumeClaim` (PVC) - это запрос пользователя на хранение. Он похож на `Pod`. `Pos`'ы потребляют ресурсы узлов, а PVC - PersistentVolume ресурсы. `Pod`'ы могут запрашивать определенные уровни ресурсов (ЦП и память). `Claim` могут запрашивать определенный размер и режимы доступа (например, они могут быть установлены ReadWriteOnce, ReadOnlyMany или ReadWriteMany, см. AccessModes).
 
 ``` yml
 apiVersion: v1
@@ -578,10 +596,9 @@ spec:
 
 #### 1.4.2.10. Манифест `DaemonSet`
 
-`DaemonSet` - гарантирует, что определенный под будет запущен на всех (или некоторых) нодах.
+`DaemonSet` гарантирует, что все (или некоторые) `Node` запускают копию `Pod`. По мере добавления `Node` в кластер к ним добавляются `Pod`'ы. Когда `Nod`'ы удаляются из кластера, эти `Pod`'ы собираются сборщиком мусора.
 
 ``` yml
----
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -596,82 +613,59 @@ spec:
   selector:
     matchLabels:
       app: node-exporter
-  template:
-    metadata:
-      labels:
-        app: node-exporter
-    spec:
-      containers:
-      - args:
-        - --web.listen-address=0.0.0.0:9101
-        - --path.procfs=/host/proc
-        - --path.sysfs=/host/sys
-        - --collector.filesystem.ignored-mount-points=^/(dev|proc|sys|var/lib/docker/.+)($|/)
-        - --collector.filesystem.ignored-fs-type=^(autofs|binfmt_misc|cgroup|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|mqueue|overlay|croc|procfs|pstore|rpc_pipefs|securityfs|sysfs|tracefs)$
-        image: quay.io/prometheus/node-exporter:v0.16.0
-        imagePullPolicy: IfNotPresent
-        name: node-exporter
-        volumeMounts:
-        - mountPath: /host/proc
+    template:
+      metadata:
+        labels:
+          app: node-exporter
+      spec:
+        containers:
+        - args:
+          - --web.listen-address=0.0.0.0:9101
+          - --path.procfs=/host/proc
+          - --path.sysfs=/host/sys
+          - --collector.filesystem.ignored-mount-points=^/(dev|proc|sys|var/lib/docker/.+)($|/)
+          - --collector.filesystem.ignored-fs-type=^(autofs|binfmt_misc|cgroup|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|mqueue|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|sysfs|tracefs)$
+          image: quay.io/prometheus/node-exporter:v0.16.0
+          imagePullPolicy: IfNotPresent
+          name: node-exporter
+          volumeMounts:
+          - mountPath: /host/proc
+            name: proc
+          - mountPath: /host/sys
+            name: sys
+          - mountPath: /host/root
+            name: root
+            readOnly: true
+        hostNetwork: true # Node Exporter прокидывает сетевое имя узла
+        hostPid: true     # и пространство PID'ов
+        nodeselector:     # DaemonSet могут запускаться только на узлах с перечисленными метками
+          beta.kubernetes.io/os: linux
+        securityContext:  # Запускаться не от рута
+          runAsNonRoot: true
+          runAsUser: 65534
+        toleations:       # Не запускаться на мастер нодах
+        - effect: NoSchedule
+          key: node-role.kubernetes.io/master
+        volumes:          # Список томов, монтируются внутрь контейнера
+        - hostPath:
+            path: /proc
+            type: ""
           name: proc
-        - mountPath: /host/sys
+        - hostPath:
+            path: /sys
+            type: ""
           name: sys
-        - mountPath: /host/root
+        - hostPath:
+            path: /
+            type: ""
           name: root
-          readOnly: true
-      hostNetwork: true
-      hostPID: true
-      nodeSelector:
-        beta.kubernetes.io.os: linux
-      securityContext:
-        runAsNonRoot: true
-        runAsUser: 65534
-      tolerations:
-      - effect: NoSchedule
-        key: node-role.kubernetes.io/master
-      volumes:
-      - hostPath:
-          path: /proc
-          type: ""
-        name: proc
-      - hostPath:
-          path: /sys
-          type: ""
-        name: sys
-      - hostPath:
-          path: /
-          type: ""
-        name: root
 ```
 
-#### Манифест `StatefulSet`
+#### 1.4.2.11. Манифест `StatefulSet`
 
-- Позволяет запускать группу подов (как Deployment)
-  - Гарантирует их уникальность
-  - Гарантирует их последовательность
-- PVC template
-  - При удалении не удаляет PVC
-- Используется для запуска приложения с сохранением состояния
-  - Rabbit
-  - DBs
-  - Redis
-  - Kafka
-  - ...
+`StatefulSet` - это объект API, используемый для управления приложениями с отслеживанием состояния. Управляет развертыванием и масштабированием набора `Pod`'ов и предоставляет гарантии порядка и уникальности этих `Pod`'ов.
 
-RabbitMQ - исключение. Единственная база данных, которую можно запускать в kubernetes, умеет объединяться в кластер.
-
-Набор манифестов длф RabbitMQ, взят из документации:
-
-``` bash
-.
-..
-configmap.yaml
-rolebindint.yaml
-role.yaml
-serviceaccount.yaml
-service.yaml
-statefulset.yaml
-```
+Для запуска манифеста не достаточно одной инструкции, потребуются дополнительные манифесты. Подробнее в официальной документации.
 
 ``` yml
 apiVersion: apps/v1
@@ -695,18 +689,18 @@ spec:
         - name: rabbitmq-k8s
           image: rabbitmq:3.7
           env:
-              - name: MY_POD_IP
-                valueFrom:
-                  fiendRef:
-                    fieldPath: status.podIP
-              - name: RABBITMQ_USE_LONGNAME
-                value: "true"
-              - mane: RABBITMQ_NODENAME
-                value: "rabbit@$(MY_POD_IP)"
-              - name: K8S_SERVICE_NAME
-                value: "rabbitmq"
-              - name: RABBITMQ_ERLANG_COOKIE
-                value: "mycookie"
+            - name: MY_POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: RABBITMQ_USE_LONGNAME
+              value: "true"
+            - name: RABBITMQ_NODENAME
+              value: "rabbit@$(MY_POD_IP)"
+            - name: K8S_SERVICE_NAME
+              value: "rabbitmq"
+            - name: RABBITMQ_ERLANG_COOKIE
+              value: "mycookie"
           ports:
             - name: amqp
               protocol: TCP
@@ -719,10 +713,10 @@ spec:
             timeoutSeconds: 15
           readinessProbe:
             exec:
-              command: ["rabbitmqctl", "status"]
+              command: ["rabbitmq", "status"]
             initialDelaySeconds: 20
             periodSeconds: 60
-            timeoutSeconds: 15
+            timeoutSeconds: 10
           imagePullPolicy: Always
           volumeMounts:
             - name: config-volume
@@ -761,11 +755,23 @@ spec:
         storageClassName: local-storage
 ```
 
-#### Headless Service
+##### 1.4.2.11.1. Манифест `initContainers`
+
+- Позволяет выполнить настройки перед запуском основного приложения.
+- Выполняется по порядку описания в манифесте.
+- Можно монтировать те же тома, что и в основных контейнерах.
+- Можно запускать от другого пользователя.
+- Должен выполнить действие и остановиться.
+
+#### 1.4.2.12. Headless Service
 
 Это сервис типа ClusterIP, у которого в поле `.spec.clusterIP` указано значение `None`. Этому сервису не назначается IP адрес, вместо этого создаются DNS записи типа А, которые указывают все поды нашего StatefulSet'а. Также создаются отдельные записи с именами подов, которые указывают на конкретные поды, их IP адреса.
 
 Такой подход позволяет реализовать концепцию сбора инстансов базы данных в StatefulSet в какой-то кластер.
+
+- .spec.clusterIP: None.
+- Резолвится в IP всех эндпоинтов.
+- Создает записи с именами всех эндпоинтов.
 
 ``` yml
 ---

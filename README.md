@@ -66,7 +66,7 @@
 
 ### 1.1.1. Примеры использования
 
-`docker run -it -rm -e VARIABLE_1='VALUE' --entrypoint /bin/bash docker/centos:latest`
+`docker run -it -e VARIABLE_1='VALUE' --entrypoint /bin/bash docker/centos:latest`
 
 `docker run --name long --rm -d long`:
 
